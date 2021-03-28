@@ -46,7 +46,7 @@ void pel_error( char *s );
 
 void usage(char *argv0)
 {
-    fprintf(stderr, "Usage: %s [ -s key_seed ] [ -p port ] [command]\n"
+    fprintf(stderr, "Usage: %s [ -s password ] [ -p port ] [command]\n"
         "\n"
         "   pubkey\n"
         "   <hostname|cb>\n"
