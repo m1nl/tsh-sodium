@@ -1,0 +1,11 @@
+*.bz2
+*.deb
+*.exe
+*.o
+*.tgz
+*.swp
+ref/*
+tsh
+tshd
+dist/*
+!dist/.keep
