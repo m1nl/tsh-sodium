@@ -44,7 +44,7 @@ darwin:
 	$(MAKE)	\
 		CC="clang"	\
 		CFLAGS="$(CFLAGS)"	\
-		CPPFLAGS="$(CFLAGS)"	\
+		CPPFLAGS="$(CPPFLAGS)"	\
 		LDFLAGS="$(LDFLAGS)"	\
 		DEFS="$(DEFS) -DOPENBSD"	\
 		$(TSH) $(TSHD)
@@ -52,7 +52,7 @@ darwin:
 iphone:
 	$(MAKE)	\
 		CFLAGS="$(CFLAGS) -I$(TOOLCHAIN)/usr/include"	\
-		CPPFLAGS="$(CFLAGS)"	\
+		CPPFLAGS="$(CPPFLAGS)"	\
 		LDFLAGS="$(LDFLAGS) -L$(TOOLCHAIN)/usr/lib"	\
 		DEFS="$(DEFS) -DOPENBSD"	\
 		$(TSH) $(TSHD)
@@ -62,7 +62,7 @@ iphone:
 linux:
 	$(MAKE)	\
 		CFLAGS="$(CFLAGS)"	\
-		CPPFLAGS="$(CFLAGS)"	\
+		CPPFLAGS="$(CPPFLAGS)"	\
 		LDFLAGS="$(LDFLAGS)"	\
 		DEFS="$(DEFS) -DLINUX"	\
 		$(TSH) $(TSHD)
@@ -70,7 +70,7 @@ linux:
 linux_x64:
 	$(MAKE)	\
 		CFLAGS="$(CFLAGS)"	\
-		CPPFLAGS="$(CFLAGS)"	\
+		CPPFLAGS="$(CPPFLAGS)"	\
 		LDFLAGS="$(LDFLAGS)"	\
 		DEFS="$(DEFS) -DLINUX"	\
 		$(TSH) $(TSHD)
@@ -78,7 +78,7 @@ linux_x64:
 openbsd:
 	$(MAKE)	\
 		CFLAGS="$(CFLAGS)"	\
-		CPPFLAGS="$(CFLAGS)"	\
+		CPPFLAGS="$(CPPFLAGS)"	\
 		LDFLAGS="$(LDFLAGS)"	\
 		DEFS="$(DEFS) -DOPENBSD"	\
 		$(TSH) $(TSHD)
@@ -86,7 +86,7 @@ openbsd:
 freebsd:
 	$(MAKE)	\
 		CFLAGS="$(CFLAGS)"	\
-		CPPFLAGS="$(CFLAGS)"	\
+		CPPFLAGS="$(CPPFLAGS)"	\
 		LDFLAGS="$(LDFLAGS)"	\
 		DEFS="$(DEFS) -DFREEBSD"	\
 		$(TSH) $(TSHD)
