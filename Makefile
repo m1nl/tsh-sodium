@@ -33,11 +33,6 @@ all:
 	@echo "	make freebsd"
 	@echo "	make openbsd"
 	@echo "	make netbsd"
-	@echo "	make cygwin"
-	@echo "	make sunos"
-	@echo "	make irix"
-	@echo "	make hpux"
-	@echo "	make osf"
 	@echo "	make iphone"
 	@echo "	make darwin"
 	@echo

@@ -1,6 +1,6 @@
 
 
-    Tiny SHell Sodium - An open-source UNIX backdoor with libsodium support
+ Tiny SHell Sodium - An open-source UNIX backdoor with libsodium support
 
 
     * Before compiling Tiny SHell Sodium
@@ -15,6 +15,14 @@
         3. You may want to start tshd in "connect-back" mode if
            it runs on on a firewalled box; simply uncomment and
            modify CONNECT_BACK_HOST in tsh.h.
+
+        4. Before compiling Tiny SHell Sodium you need to update
+           submodules and checkout a stable version of libsodium.
+           To build libsodium and install to dist directory, you
+           can use build-libsodium.sh script.
+
+        5. Makefile has been updated to use musl-gcc and static
+           compilation flags to make the binaries portable.
 
     * Compiling Tiny SHell
 
