@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <termios.h>
@@ -622,6 +623,19 @@ int tsh_runshell( int server, char *argv2 )
             perror( "tcsetattr" );
             return( 27 );
         }
+    }
+
+    /* set TCP_NODELAY option */
+
+    imf = 1;
+
+    ret = setsockopt( server, SOL_TCP, TCP_NODELAY,
+        (void *) &imf, sizeof( imf ) );
+
+    if( ret < 0 )
+    {
+        perror( "setsockopt" );
+        return( 10 );
     }
 
     /* let's forward the data back and forth */

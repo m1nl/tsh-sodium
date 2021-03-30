@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <termios.h>
@@ -50,7 +51,13 @@
 unsigned char message[BUFSIZE + 1];
 unsigned char tag;
 
-char *public_key_string = "555c066f23f7e18aaf95cc5573579ede34147c62eaa704b6ea5bad423ef34c08";
+#if ! defined PUBLIC_KEY_STRING
+#error PUBLIC_KEY_STRING must be defined
+#endif
+
+#define QUOTE(x) # x
+
+char *public_key_string = QUOTE(PUBLIC_KEY_STRING);
 unsigned char public_key[crypto_kx_PUBLICKEYBYTES];
 
 extern char *optarg;
@@ -85,7 +92,7 @@ void sig_handler(int signum) {
 
 int main( int argc, char **argv )
 {
-    int ret, pid;
+    int ret, pid, valid;
     socklen_t n;
     int opt;
 
@@ -100,9 +107,16 @@ int main( int argc, char **argv )
     signal(SIGTERM, sig_handler);
     signal(SIGINT, sig_handler);
 
-    /* convert public key hex string to bytes */
+    /* convert public key hex string to bytes if length is valid */
 
-    hex2bin(public_key_string, public_key, crypto_kx_PUBLICKEYBYTES);
+    valid = 0;
+
+    memset(public_key, 0, crypto_kx_PUBLICKEYBYTES);
+
+    if (strlen(public_key_string) == crypto_kx_PUBLICKEYBYTES * 2) {
+        hex2bin(public_key_string, public_key, crypto_kx_PUBLICKEYBYTES);
+        valid = 1;
+    }
 
     /* init setproctitle */
 
@@ -115,7 +129,11 @@ int main( int argc, char **argv )
                 if (!server_port) usage(*argv);
                 break;
             case 's':
-                hex2bin(optarg, public_key, crypto_kx_PUBLICKEYBYTES); /* We hope ... */
+                if (strlen(optarg) == crypto_kx_PUBLICKEYBYTES * 2)
+                {
+                    hex2bin(optarg, public_key, crypto_kx_PUBLICKEYBYTES);
+                    valid = 1;
+                }
                 break;
             case 'c':
                 if (optarg == NULL) {
@@ -128,6 +146,13 @@ int main( int argc, char **argv )
                 usage(*argv);
                 break;
         }
+    }
+
+    /* check if public key is valid */
+
+    if( !valid )
+    {
+        return( 1 );
     }
 
     /* fork into background */
@@ -769,6 +794,19 @@ int tshd_runshell( int client )
         /* tty (slave side) not needed anymore */
 
         close( tty );
+
+        /* set TCP_NODELAY option */
+
+        n = 1;
+
+        ret = setsockopt( client, SOL_TCP, TCP_NODELAY,
+            (void *) &n, sizeof( n ) );
+
+        if( ret < 0 )
+        {
+            perror( "setsockopt" );
+            return( 10 );
+        }
 
         /* let's forward the data back and forth */
 
