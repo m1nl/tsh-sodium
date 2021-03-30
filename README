@@ -8,7 +8,7 @@
         1. First of all, you should setup your default public key;
            you can generate your public key using pubkey command
            in tsh client. Then you can pass it as PUBLIC_KEY_STRING
-           variable to make and clean and recompile tsh.
+           variable to make and recompile tsh.
 
         2. It is advised to change SERVER_PORT, the port on which
            the server will be listening for incoming connections.
