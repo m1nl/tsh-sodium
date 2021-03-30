@@ -55,7 +55,8 @@ unsigned char tag;
 #error PUBLIC_KEY_STRING must be defined
 #endif
 
-#define QUOTE(x) # x
+#define Q(x) #x
+#define QUOTE(x) Q(x)
 
 char *public_key_string = QUOTE(PUBLIC_KEY_STRING);
 unsigned char public_key[crypto_kx_PUBLICKEYBYTES];
@@ -113,7 +114,8 @@ int main( int argc, char **argv )
 
     memset(public_key, 0, crypto_kx_PUBLICKEYBYTES);
 
-    if (strlen(public_key_string) == crypto_kx_PUBLICKEYBYTES * 2) {
+    if (strlen(public_key_string) == crypto_kx_PUBLICKEYBYTES * 2)
+    {
         hex2bin(public_key_string, public_key, crypto_kx_PUBLICKEYBYTES);
         valid = 1;
     }
