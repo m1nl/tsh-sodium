@@ -4,6 +4,7 @@
 #include <sodium.h>
 
 #define BUFSIZE 4096 /* maximum message length */
+#define CRYPTO_BUFSIZE ( BUFSIZE + crypto_secretstream_xchacha20poly1305_ABYTES )
 
 #define PEL_SUCCESS 0
 #define PEL_FAILURE -1

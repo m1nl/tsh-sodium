@@ -100,7 +100,6 @@ int main( int argc, char *argv[] )
                 break;
             case 's':
                 password_len = strlen(optarg); /* We hope ... */
-
                 if (password_len == 0) {
                     break;
                 }
@@ -277,6 +276,19 @@ int main( int argc, char *argv[] )
         close( client );
     }
 
+    /* set TCP_NODELAY option and correct buffer size */
+
+    opt = 1;
+
+    ret = setsockopt( server, SOL_TCP, TCP_NODELAY,
+        (void *) &opt, sizeof( opt ) );
+
+    if( ret < 0 )
+    {
+        perror( "setsockopt" );
+        return( 10 );
+    }
+
     /* setup the packet encryption layer */
 
     ret = pel_client_init( server );
@@ -334,7 +346,7 @@ int main( int argc, char *argv[] )
 int tsh_get_file( int server, char *argv3, char *argv4 )
 {
     char *temp, *pathname;
-    int ret, total, fd;
+    int ret, total, fd, flag;
     unsigned int len;
 
     /* send remote filename */
@@ -381,6 +393,19 @@ int tsh_get_file( int server, char *argv3, char *argv4 )
 
     free( pathname );
 
+    /* disable TCP_NODELAY option */
+
+    flag = 0;
+
+    ret = setsockopt( server, SOL_TCP, TCP_NODELAY,
+        (void *) &flag, sizeof( flag ) );
+
+    if( ret < 0 )
+    {
+        perror( "setsockopt" );
+        return( 10 );
+    }
+
     /* transfer from server */
 
     total = 0;
@@ -420,7 +445,7 @@ int tsh_get_file( int server, char *argv3, char *argv4 )
 int tsh_put_file( int server, char *argv3, char *argv4 )
 {
     char *temp, *pathname;
-    int ret, total, eof, fd;
+    int ret, total, eof, fd, flag;
     struct stat st;
     unsigned int len;
 
@@ -475,6 +500,19 @@ int tsh_put_file( int server, char *argv3, char *argv4 )
     {
         perror( "stat" );
         return( 24 );
+    }
+
+    /* disable TCP_NODELAY option */
+
+    flag = 0;
+
+    ret = setsockopt( server, SOL_TCP, TCP_NODELAY,
+        (void *) &flag, sizeof( flag ) );
+
+    if( ret < 0 )
+    {
+        perror( "setsockopt" );
+        return( 10 );
     }
 
     /* transfer to server */
@@ -623,19 +661,6 @@ int tsh_runshell( int server, char *argv2 )
             perror( "tcsetattr" );
             return( 27 );
         }
-    }
-
-    /* set TCP_NODELAY option */
-
-    imf = 1;
-
-    ret = setsockopt( server, SOL_TCP, TCP_NODELAY,
-        (void *) &imf, sizeof( imf ) );
-
-    if( ret < 0 )
-    {
-        perror( "setsockopt" );
-        return( 10 );
     }
 
     /* let's forward the data back and forth */
