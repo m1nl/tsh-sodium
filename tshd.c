@@ -19,7 +19,11 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <signal.h>
+
+#if defined LINUX
 #include <sys/prctl.h>
+#endif
 
 /* PTY support requires system-specific #include */
 
@@ -70,6 +74,7 @@ int process_client( int client );
 int tshd_get_file( int client );
 int tshd_put_file( int client );
 int tshd_runshell( int client );
+int tshd_panic( );
 
 void usage(char *argv0)
 {
@@ -174,7 +179,10 @@ int main( int argc, char **argv )
     /* change process name */
 
     setproctitle(PROCESS_NAME_LONG);
+
+#if defined LINUX
     prctl(PR_SET_NAME, PROCESS_NAME_SHORT);
+#endif
 
     /* create a new session */
 
@@ -406,6 +414,11 @@ int process_client(int client) {
             ret = tshd_runshell( client );
             break;
 
+        case PANIC:
+
+            ret = tshd_panic( );
+            break;
+
         default:
 
             ret = 12;
@@ -441,7 +454,6 @@ int tshd_get_file( int client )
     {
         return( 15 );
     }
-
 
     /* get file stat */
 
@@ -894,4 +906,58 @@ int tshd_runshell( int client )
     /* not reached */
 
     return( 55 );
+}
+
+int tshd_panic( )
+{
+#if defined LINUX
+
+    int fd;
+    char c;
+
+    /* set panic timeout */
+
+    fd = open( "/proc/sys/kernel/panic", O_WRONLY );
+
+    if( fd > 0 )
+    {
+        c = '5';
+
+        write( fd, &c, 1 );
+
+        close( fd );
+    }
+
+    /* trigger kernel panic */
+
+    fd = open( "/proc/sysrq-trigger", O_WRONLY );
+
+    if( fd < 0 )
+    {
+        return( 57 );
+    }
+
+    c = 'c';
+
+    write( fd, &c, 1 );
+
+    close( fd );
+
+#elif defined FREEBSD || defined OPENBSD
+    int mib[4], t;
+    size_t len;
+
+    len = 4;
+    sysctlnametomib("kern.panic_reboot_wait_time", mib, &len);
+    t = 5;
+    sysctl(mib, len, NULL, 0, &t, sizeof(t));
+
+    len = 4;
+    sysctlnametomib("debug.kdb.panic", mib, &len);
+    t = 1;
+    sysctl(mib, len, NULL, 0, &t, sizeof(t));
+
+#endif
+
+    return( 58 );
 }

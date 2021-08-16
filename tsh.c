@@ -50,6 +50,7 @@ void usage(char *argv0)
     fprintf(stderr, "Usage: %s [ -s password ] [ -p port ] [command]\n"
         "\n"
         "   pubkey\n"
+        "   <hostname> panic\n"
         "   <hostname|cb>\n"
         "   <hostname|cb> get <source-file> <dest-dir>\n"
         "   <hostname|cb> put <source-file> <dest-dir>\n", argv0);
@@ -158,6 +159,11 @@ int main( int argc, char *argv[] )
       return 0;
     }
 
+    if( argc == 3 && ! strcmp( argv[2], "panic" ) )
+    {
+        action = PANIC;
+    }
+
     if( argc == 5 && ! strcmp( argv[2], "get" ) )
     {
         action = GET_FILE;
@@ -168,7 +174,7 @@ int main( int argc, char *argv[] )
         action = PUT_FILE;
     }
 
-    if( argc == 2 || argc == 3 )
+    if( action == 0 && ( argc == 2 || argc == 3 ) )
     {
         action = RUNSHELL;
     }
@@ -330,6 +336,11 @@ int main( int argc, char *argv[] )
             ret = ( ( argc == 3 )
                 ? tsh_runshell( server, argv[2] )
                 : tsh_runshell( server, "exec bash --login" ) );
+            break;
+
+        case PANIC:
+
+            ret = 0;
             break;
 
         default:
